@@ -9,6 +9,9 @@ import { toRequestContext } from './modules/auth/auth.types.js';
 import { PostgresCustomerRepository } from './modules/customers/customer.repository.js';
 import { CustomerService } from './modules/customers/customer.service.js';
 import { registerCustomerRoutes } from './modules/customers/customer.routes.js';
+import { PostgresLeadRepository } from './modules/leads/lead.repository.js';
+import { LeadService } from './modules/leads/lead.service.js';
+import { registerLeadRoutes } from './modules/leads/lead.routes.js';
 
 export function buildApp() {
   const app = Fastify({
@@ -53,9 +56,12 @@ export function buildApp() {
     data: { name: 'Autonomous AI Agency API', version: 'v1' },
   }));
 
-  const customerRepository = new PostgresCustomerRepository(getDatabasePool());
-  const customerService = new CustomerService(customerRepository);
+  const pool = getDatabasePool();
+  const customerService = new CustomerService(new PostgresCustomerRepository(pool));
+  const leadService = new LeadService(new PostgresLeadRepository(pool));
+
   app.register(async (scope) => registerCustomerRoutes(scope, customerService), { prefix: '/api/v1' });
+  app.register(async (scope) => registerLeadRoutes(scope, leadService), { prefix: '/api/v1' });
 
   app.setErrorHandler((error, request, reply) => {
     request.log.error(error);
