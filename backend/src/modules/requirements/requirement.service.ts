@@ -1,21 +1,27 @@
 import { conflict, notFound, validationError } from '../../common/errors/app-error.js';
-import { REQUIREMENT_TRANSITIONS, type RequirementRepository, type RequirementStatus } from './requirement.types.js';
+import { REQUIREMENT_TRANSITIONS, type Requirement, type RequirementRepository, type RequirementStatus } from './requirement.types.js';
 
 export class RequirementService {
   constructor(private readonly repository: RequirementRepository) {}
 
-  async moveToReview(organizationId: string, id: string) {
+  get(organizationId: string, id: string): Promise<Requirement> {
+    return this.repository.findById(organizationId, id).then((requirement) => {
+      if (!requirement) throw notFound('Requirement');
+      return requirement;
+    });
+  }
+
+  async moveToReview(organizationId: string, id: string): Promise<Requirement> {
     return this.transition(organizationId, id, 'READY_FOR_REVIEW');
   }
 
-  async requestChanges(organizationId: string, id: string) {
+  async requestChanges(organizationId: string, id: string): Promise<Requirement> {
     return this.transition(organizationId, id, 'CHANGES_REQUESTED');
   }
 
-  async approve(organizationId: string, id: string, versionId: string) {
+  async approve(organizationId: string, id: string, versionId: string): Promise<Requirement> {
     if (!versionId) throw validationError('An approved requirement version is required.');
-    const requirement = await this.repository.findById(organizationId, id);
-    if (!requirement) throw notFound('Requirement');
+    const requirement = await this.get(organizationId, id);
     if (!REQUIREMENT_TRANSITIONS[requirement.status].includes('APPROVED')) {
       throw conflict(`Requirement cannot be approved from status ${requirement.status}.`);
     }
@@ -24,9 +30,8 @@ export class RequirementService {
     return this.repository.updateStatus(organizationId, id, 'APPROVED', version.id);
   }
 
-  private async transition(organizationId: string, id: string, next: RequirementStatus) {
-    const requirement = await this.repository.findById(organizationId, id);
-    if (!requirement) throw notFound('Requirement');
+  private async transition(organizationId: string, id: string, next: RequirementStatus): Promise<Requirement> {
+    const requirement = await this.get(organizationId, id);
     if (!REQUIREMENT_TRANSITIONS[requirement.status].includes(next)) {
       throw conflict(`Invalid requirement transition: ${requirement.status} → ${next}`);
     }
