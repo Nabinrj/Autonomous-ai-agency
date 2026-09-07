@@ -15,25 +15,30 @@ class MemoryLeadRepository implements LeadRepository {
       name: input.name ?? null,
       email: input.email ?? null,
       phone: input.phone ?? null,
-      status: 'NEW', score: null, qualificationReason: null,
+      status: 'NEW',
+      score: null,
+      qualificationReason: null,
     };
     this.leads.set(lead.id, lead);
     return lead;
   }
 
-  async findById(_organizationId: string, id: string) {
-    return this.leads.get(id) ?? null;
+  async findById(organizationId: string, id: string): Promise<Lead | null> {
+    const lead = this.leads.get(id) ?? null;
+    return lead?.organizationId === organizationId ? lead : null;
   }
 
-  async updateStatus(_organizationId: string, id: string, status: LeadStatus, score?: number, reason?: string) {
-    const lead = this.leads.get(id)!;
+  async updateStatus(organizationId: string, id: string, status: LeadStatus, score?: number, reason?: string): Promise<Lead> {
+    const lead = await this.findById(organizationId, id);
+    assert.ok(lead);
     const updated = { ...lead, status, score: score ?? lead.score, qualificationReason: reason ?? lead.qualificationReason };
     this.leads.set(id, updated);
     return updated;
   }
 
-  async convert(_organizationId: string, id: string, customerId: string) {
-    const lead = this.leads.get(id)!;
+  async convert(organizationId: string, id: string, customerId: string): Promise<Lead> {
+    const lead = await this.findById(organizationId, id);
+    assert.ok(lead);
     const updated = { ...lead, customerId, status: 'CONVERTED' as const };
     this.leads.set(id, updated);
     return updated;
@@ -52,4 +57,14 @@ test('lead lifecycle enforces qualification before conversion', async () => {
   const converted = await service.convert('org-1', lead.id, 'customer-1');
   assert.equal(converted.status, 'CONVERTED');
   assert.equal(converted.customerId, 'customer-1');
+});
+
+test('lead lifecycle rejects an invalid score', async () => {
+  const service = new LeadService(new MemoryLeadRepository());
+  const lead = await service.create({ organizationId: 'org-1', source: 'social', name: 'Jordan' });
+
+  await assert.rejects(
+    () => service.qualify('org-1', lead.id, 101, true, 'Invalid score'),
+    /between 0 and 100/,
+  );
 });
