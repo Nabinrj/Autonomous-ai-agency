@@ -34,9 +34,14 @@ The Core Platform provides the backend foundations required by every later agenc
 | Customers | Organizations, customers, contacts | Customer CRUD |
 | Leads | Lead lifecycle | Create, qualify, convert |
 | Requirements | Requirement versions and approval state | Create, version, validate, approve |
-| Projects | Project/task lifecycle | Create and controlled progression |
+| Projects | Project/task lifecycle | Controlled project and task progression |
 | Approvals | Human approval decisions | Create, approve, reject |
 | Audit | Immutable activity record | Append audit events |
+| Workflows | Durable workflow run state | Create, transition, correlate, audit |
+
+## Workflow Boundary
+
+Workflow runs are persisted separately from domain entities. A workflow records its type, correlation ID, target entity, lifecycle state, and failure information. Workflow transitions are validated in the service layer and important transitions are written to the audit log. This creates the control boundary that later AI agents will use: agents request domain actions through workflows rather than receiving unrestricted database access.
 
 ## Stage Exit Criteria
 
