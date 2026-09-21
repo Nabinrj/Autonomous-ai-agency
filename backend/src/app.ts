@@ -21,6 +21,13 @@ import { registerProjectRoutes } from './modules/projects/project.routes.js';
 import { PostgresApprovalRepository } from './modules/approvals/approval.repository.js';
 import { ApprovalService } from './modules/approvals/approval.service.js';
 import { registerApprovalRoutes } from './modules/approvals/approval.routes.js';
+import { PostgresAuditRepository } from './modules/audit/audit.repository.js';
+import { PostgresProjectTaskRepository } from './modules/projects/project-task.repository.js';
+import { ProjectTaskService } from './modules/projects/project-task.service.js';
+import { registerProjectTaskRoutes } from './modules/projects/project-task.routes.js';
+import { PostgresWorkflowRepository } from './modules/workflows/workflow.repository.js';
+import { WorkflowService } from './modules/workflows/workflow.service.js';
+import { registerWorkflowRoutes } from './modules/workflows/workflow.routes.js';
 
 export function buildApp() {
   const app = Fastify({ logger: { level: env.LOG_LEVEL }, requestIdHeader: 'x-request-id' });
@@ -52,12 +59,17 @@ export function buildApp() {
   const requirementService = new RequirementService(new PostgresRequirementRepository(pool));
   const projectService = new ProjectService(new PostgresProjectRepository(pool));
   const approvalService = new ApprovalService(new PostgresApprovalRepository(pool));
+  const auditRepository = new PostgresAuditRepository(pool);
+  const projectTaskService = new ProjectTaskService(new PostgresProjectTaskRepository(pool));
+  const workflowService = new WorkflowService(new PostgresWorkflowRepository(pool), auditRepository);
 
   app.register(async (scope) => registerCustomerRoutes(scope, customerService), { prefix: '/api/v1' });
   app.register(async (scope) => registerLeadRoutes(scope, leadService), { prefix: '/api/v1' });
   app.register(async (scope) => registerRequirementRoutes(scope, requirementService), { prefix: '/api/v1' });
   app.register(async (scope) => registerProjectRoutes(scope, projectService), { prefix: '/api/v1' });
   app.register(async (scope) => registerApprovalRoutes(scope, approvalService), { prefix: '/api/v1' });
+  app.register(async (scope) => registerProjectTaskRoutes(scope, projectTaskService), { prefix: '/api/v1' });
+  app.register(async (scope) => registerWorkflowRoutes(scope, workflowService), { prefix: '/api/v1' });
 
   app.setErrorHandler((error, request, reply) => {
     request.log.error(error);
