@@ -44,7 +44,7 @@ BEGIN
     UPDATE requirements
     SET approved_version_id = '00000000-0000-0000-0000-000000000602'
     WHERE id = '00000000-0000-0000-0000-000000000501';
-    RAISE EXCEPTION 'Requirement accepted another requirement\'s version';
+    RAISE EXCEPTION 'Requirement accepted another requirement''s version';
   EXCEPTION WHEN foreign_key_violation THEN
     NULL;
   END;
