@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { notFound } from '../../common/errors/app-error.js';
 import type { CreateProjectTaskInput, ProjectTask, ProjectTaskRepository, ProjectTaskStatus } from './project-task.types.js';
 
 function mapTask(row: Record<string, unknown>): ProjectTask {
@@ -26,7 +27,7 @@ export class PostgresProjectTaskRepository implements ProjectTaskRepository {
        RETURNING id, project_id, parent_task_id, title, description, status, assigned_to, sort_order`,
       [organizationId, input.parentTaskId ?? null, input.title, input.description ?? null, input.assignedTo ?? null, input.sortOrder ?? 0, input.projectId],
     );
-    if (!result.rows[0]) throw new Error('Project does not exist in the organization.');
+    if (!result.rows[0]) throw notFound('Project');
     return mapTask(result.rows[0]);
   }
 
@@ -58,7 +59,7 @@ export class PostgresProjectTaskRepository implements ProjectTaskRepository {
        RETURNING t.id, t.project_id, t.parent_task_id, t.title, t.description, t.status, t.assigned_to, t.sort_order`,
       [organizationId, projectId, id, status],
     );
-    if (!result.rows[0]) throw new Error('Project task was not found.');
+    if (!result.rows[0]) throw notFound('Project task');
     return mapTask(result.rows[0]);
   }
 }
