@@ -14,7 +14,11 @@ export async function registerWorkflowStepRoutes(app: FastifyInstance, steps: Wo
     if (!['CREATED', 'RUNNING', 'WAITING'].includes(workflow.status)) {
       throw conflict('Cannot add a step to a terminal workflow.');
     }
-    const step = await steps.create(context.organizationId, { ...input, workflowRunId }, workflow.correlationId);
+    const step = await steps.create(context.organizationId, {
+      workflowRunId,
+      stepKey: input.stepKey,
+      ...(input.inputReference === undefined ? {} : { inputReference: input.inputReference }),
+    }, workflow.correlationId);
     return reply.code(201).send({ data: step });
   });
 
