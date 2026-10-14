@@ -23,7 +23,7 @@ export interface CreateWorkflowRunInput {
 export interface WorkflowRepository {
   create(input: CreateWorkflowRunInput): Promise<WorkflowRun>;
   findById(organizationId: string, id: string): Promise<WorkflowRun | null>;
-  updateStatus(organizationId: string, id: string, status: WorkflowStatus, errorCode?: string, errorMessage?: string): Promise<WorkflowRun>;
+  updateStatus(organizationId: string, id: string, expectedStatus: WorkflowStatus, status: WorkflowStatus, errorCode?: string, errorMessage?: string): Promise<WorkflowRun>;
 }
 
 export const WORKFLOW_TRANSITIONS: Record<WorkflowStatus, WorkflowStatus[]> = {
