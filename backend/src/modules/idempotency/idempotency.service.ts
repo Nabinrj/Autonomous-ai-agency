@@ -14,7 +14,7 @@ export interface IdempotencyResult<T extends JsonValue = JsonValue> extends Idem
 }
 
 function canonicalize(value: JsonValue): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
   if (Array.isArray(value)) return `[${value.map(canonicalize).join(',')}]`;
   const object = value as Record<string, JsonValue>;
   return `{${Object.keys(object).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(object[key]!)}`).join(',')}}`;
@@ -93,7 +93,7 @@ export class IdempotencyService {
       if (row.request_hash !== requestHash) {
         throw conflict('This Idempotency-Key was already used with a different request.');
       }
-      if (row.response_status === null || row.response_body === null) {
+      if (row.response_status === null) {
         throw conflict('The original operation has no completed response; retry with a new key after investigation.');
       }
 
