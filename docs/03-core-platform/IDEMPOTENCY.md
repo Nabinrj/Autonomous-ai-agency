@@ -21,4 +21,4 @@ A key mismatch returns a conflict. A committed reservation with no response is t
 
 ## Current scope
 
-The reusable service and canonical request-hash unit tests are implemented. It is not yet wired into individual HTTP routes, and external side effects still require an outbox/worker before they can safely be automated. Do not claim end-to-end idempotency for a route until the route uses this service and integration tests exercise concurrent requests against PostgreSQL.
+The reusable service is wired into customer creation, which now requires an Idempotency-Key and persists/replays the exact 201 response. Other create/command routes are not yet wired, and external side effects still require an outbox/worker before they can safely be automated. Do not claim end-to-end idempotency for a route until the route uses this service and integration tests exercise concurrent requests against PostgreSQL.
