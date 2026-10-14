@@ -80,7 +80,7 @@ export class IdempotencyService {
       const existing = await client.query<{
         request_hash: string;
         response_status: number | null;
-        response_body: T | null;
+        response_body: T;
       }>(
         `SELECT request_hash, response_status, response_body
          FROM idempotency_keys
