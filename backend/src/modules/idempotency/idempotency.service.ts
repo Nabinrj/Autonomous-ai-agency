@@ -66,12 +66,13 @@ export class IdempotencyService {
         }
         const encoded = JSON.stringify(response.body);
         if (encoded === undefined) throw new Error('Idempotent operation returned a non-JSON response.');
-        await client.query(
+        const saved = await client.query(
           `UPDATE idempotency_keys
            SET response_status = $3, response_body = $4::jsonb
            WHERE organization_id = $1 AND operation_key = $2`,
           [organizationId, key, response.statusCode, encoded],
         );
+        if (saved.rowCount !== 1) throw new Error('Idempotency response could not be persisted.');
         await client.query('COMMIT');
         transactionOpen = false;
         return { ...response, replayed: false };
