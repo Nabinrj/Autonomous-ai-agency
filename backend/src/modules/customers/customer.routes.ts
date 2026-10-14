@@ -9,7 +9,11 @@ export async function registerCustomerRoutes(app: FastifyInstance, service: Cust
     const context = request.requestContext as RequestContext;
     requirePermission(context, 'customer.write');
     const input = createCustomerSchema.parse(request.body);
-    const customer = await service.create({ ...input, organizationId: context.organizationId });
+    const customer = await service.create({
+      organizationId: context.organizationId,
+      name: input.name,
+      ...(input.notes === undefined ? {} : { notes: input.notes }),
+    });
     return reply.code(201).send({ data: customer });
   });
 
