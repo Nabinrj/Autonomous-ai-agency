@@ -1,4 +1,4 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import type { CreateCustomerInput, Customer, CustomerRepository } from './customer.types.js';
 
 interface CustomerRow {
@@ -24,8 +24,9 @@ const mapCustomer = (row: CustomerRow): Customer => ({
 export class PostgresCustomerRepository implements CustomerRepository {
   constructor(private readonly db: Pool) {}
 
-  async create(input: CreateCustomerInput): Promise<Customer> {
-    const result = await this.db.query<CustomerRow>(
+  async create(input: CreateCustomerInput, transaction?: PoolClient): Promise<Customer> {
+    const executor = transaction ?? this.db;
+    const result = await executor.query<CustomerRow>(
       `INSERT INTO customers (organization_id, name, notes)
        VALUES ($1, $2, $3)
        RETURNING id, organization_id, name, status, notes, created_at, updated_at`,
