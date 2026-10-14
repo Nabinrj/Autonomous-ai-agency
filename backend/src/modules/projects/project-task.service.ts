@@ -25,6 +25,6 @@ export class ProjectTaskService {
     if (!PROJECT_TASK_TRANSITIONS[task.status].includes(next)) {
       throw conflict(`Invalid task transition: ${task.status} → ${next}`);
     }
-    return this.repository.updateStatus(organizationId, projectId, id, next);
+    return this.repository.updateStatus(organizationId, projectId, id, task.status, next);
   }
 }
