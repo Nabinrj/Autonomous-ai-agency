@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test --import tsx",
+    "test": "node --test --import tsx \"tests/*.test.ts\"",
     "lint": "eslint ."
   },
   "dependencies": {
