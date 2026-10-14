@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { env } from './config/env.js';
+import { toHttpError } from './common/errors/http-error.js';
 import { getDatabasePool } from './infrastructure/database/pool.js';
 import { DevelopmentAuthenticationProvider } from './modules/auth/dev-auth.js';
 import { toRequestContext } from './modules/auth/auth.types.js';
@@ -81,14 +82,15 @@ export function buildApp() {
   app.register(async (scope) => registerWorkflowStepRoutes(scope, workflowStepService, workflowService), { prefix: '/api/v1' });
 
   app.setErrorHandler((error, request, reply) => {
-    const statusCode = error.statusCode && error.statusCode >= 400 ? error.statusCode : 500;
-    const appError = error as { code?: string };
-    request.log.error({ requestId: request.id, statusCode, errorCode: statusCode === 500 ? 'INTERNAL_SERVER_ERROR' : (appError.code ?? 'REQUEST_ERROR') }, 'Request failed');
-    return reply.code(statusCode).send({ error: {
-      code: statusCode === 500 ? 'INTERNAL_SERVER_ERROR' : (appError.code ?? 'REQUEST_ERROR'),
-      message: statusCode === 500 ? 'An unexpected error occurred.' : error.message,
+    const safeError = toHttpError(error);
+    request.log.error({
       requestId: request.id,
-    } });
+      statusCode: safeError.statusCode,
+      errorCode: safeError.code,
+    }, 'Request failed');
+    return reply.code(safeError.statusCode).send({
+      error: { ...safeError, requestId: request.id },
+    });
   });
   return app;
 }
