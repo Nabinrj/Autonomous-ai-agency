@@ -21,7 +21,6 @@ const envSchema = z.object({
   OIDC_ISSUER: z.string().url().optional(),
   OIDC_AUDIENCE: z.string().min(1).optional(),
   OIDC_JWKS_URL: z.string().url().optional(),
-  
 });
 
 const productionSchema = envSchema.superRefine((value, context) => {
