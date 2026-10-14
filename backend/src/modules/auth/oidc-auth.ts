@@ -1,6 +1,5 @@
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 import type { Pool } from 'pg';
-import { unauthorized } from '../../common/errors/app-error.js';
 import type { UserRole } from '../../common/types/request-context.js';
 import type { AuthenticationProvider, AuthenticatedPrincipal } from './auth.types.js';
 
