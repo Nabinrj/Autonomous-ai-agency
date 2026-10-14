@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { conflict } from '../../common/errors/app-error.js';
 import { requirePermission } from '../../common/auth/require-permission.js';
 import { createWorkflowStepSchema, workflowRunPathSchema, workflowStepPathSchema, workflowStepTransitionSchema } from './workflow-step.schema.js';
 import { WorkflowService } from './workflow.service.js';
@@ -11,7 +12,7 @@ export async function registerWorkflowStepRoutes(app: FastifyInstance, steps: Wo
     const input = createWorkflowStepSchema.parse(request.body);
     const workflow = await workflows.get(context.organizationId, workflowRunId);
     if (!['CREATED', 'RUNNING', 'WAITING'].includes(workflow.status)) {
-      throw new Error('Cannot add a step to a terminal workflow.');
+      throw conflict('Cannot add a step to a terminal workflow.');
     }
     const step = await steps.create(context.organizationId, { ...input, workflowRunId }, workflow.correlationId);
     return reply.code(201).send({ data: step });
