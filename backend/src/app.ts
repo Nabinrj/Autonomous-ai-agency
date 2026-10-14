@@ -3,12 +3,15 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { env } from './config/env.js';
+import { toHttpError } from './common/errors/http-error.js';
 import { getDatabasePool } from './infrastructure/database/pool.js';
 import { DevelopmentAuthenticationProvider } from './modules/auth/dev-auth.js';
+import { OidcAuthenticationProvider } from './modules/auth/oidc-auth.js';
 import { toRequestContext } from './modules/auth/auth.types.js';
 import { PostgresCustomerRepository } from './modules/customers/customer.repository.js';
 import { CustomerService } from './modules/customers/customer.service.js';
 import { registerCustomerRoutes } from './modules/customers/customer.routes.js';
+import { IdempotencyService } from './modules/idempotency/idempotency.service.js';
 import { PostgresLeadRepository } from './modules/leads/lead.repository.js';
 import { LeadService } from './modules/leads/lead.service.js';
 import { registerLeadRoutes } from './modules/leads/lead.routes.js';
@@ -28,14 +31,21 @@ import { registerProjectTaskRoutes } from './modules/projects/project-task.route
 import { PostgresWorkflowRepository } from './modules/workflows/workflow.repository.js';
 import { WorkflowService } from './modules/workflows/workflow.service.js';
 import { registerWorkflowRoutes } from './modules/workflows/workflow.routes.js';
+import { PostgresWorkflowStepRepository } from './modules/workflows/workflow-step.repository.js';
+import { WorkflowStepService } from './modules/workflows/workflow-step.service.js';
+import { registerWorkflowStepRoutes } from './modules/workflows/workflow-step.routes.js';
 
 export function buildApp() {
-  const app = Fastify({ logger: { level: env.LOG_LEVEL }, requestIdHeader: 'x-request-id' });
+  const app = Fastify({ logger: { level: env.LOG_LEVEL }, requestIdHeader: 'x-request-id', bodyLimit: 1_048_576 });
   app.register(helmet);
   app.register(cors, { origin: env.CORS_ORIGIN, credentials: true });
   app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
 
-  const authProvider = env.NODE_ENV === 'development' ? new DevelopmentAuthenticationProvider() : null;
+  const authProvider = env.NODE_ENV === 'development'
+    ? new DevelopmentAuthenticationProvider()
+    : env.NODE_ENV === 'production' && env.OIDC_ISSUER && env.OIDC_AUDIENCE && env.OIDC_JWKS_URL
+      ? new OidcAuthenticationProvider(getDatabasePool(), env.OIDC_ISSUER, env.OIDC_AUDIENCE, env.OIDC_JWKS_URL)
+      : null;
   app.addHook('onRequest', async (request) => {
     if (!authProvider) return;
     const principal = await authProvider.authenticate(request.headers as Record<string, string | undefined>);
@@ -48,13 +58,14 @@ export function buildApp() {
       await getDatabasePool().query('SELECT 1');
       return reply.code(200).send({ data: { status: 'ready', dependencies: { database: 'ok', queue: 'not_configured' } } });
     } catch {
-      return reply.code(503).send({ error: { code: 'NOT_READY', message: 'Database dependency is unavailable.' } });
+      return reply.code(503).send({ error: { code: 'NOT_READY', message: 'A required dependency is unavailable.' } });
     }
   });
   app.get('/api/v1', async () => ({ data: { name: 'Autonomous AI Agency API', version: 'v1' } }));
 
   const pool = getDatabasePool();
   const customerService = new CustomerService(new PostgresCustomerRepository(pool));
+  const idempotencyService = new IdempotencyService(pool);
   const leadService = new LeadService(new PostgresLeadRepository(pool));
   const requirementService = new RequirementService(new PostgresRequirementRepository(pool));
   const projectService = new ProjectService(new PostgresProjectRepository(pool));
@@ -62,20 +73,27 @@ export function buildApp() {
   const auditRepository = new PostgresAuditRepository(pool);
   const projectTaskService = new ProjectTaskService(new PostgresProjectTaskRepository(pool));
   const workflowService = new WorkflowService(new PostgresWorkflowRepository(pool), auditRepository);
+  const workflowStepService = new WorkflowStepService(new PostgresWorkflowStepRepository(pool), auditRepository);
 
-  app.register(async (scope) => registerCustomerRoutes(scope, customerService), { prefix: '/api/v1' });
+  app.register(async (scope) => registerCustomerRoutes(scope, customerService, idempotencyService), { prefix: '/api/v1' });
   app.register(async (scope) => registerLeadRoutes(scope, leadService), { prefix: '/api/v1' });
   app.register(async (scope) => registerRequirementRoutes(scope, requirementService), { prefix: '/api/v1' });
   app.register(async (scope) => registerProjectRoutes(scope, projectService), { prefix: '/api/v1' });
   app.register(async (scope) => registerApprovalRoutes(scope, approvalService), { prefix: '/api/v1' });
   app.register(async (scope) => registerProjectTaskRoutes(scope, projectTaskService), { prefix: '/api/v1' });
   app.register(async (scope) => registerWorkflowRoutes(scope, workflowService), { prefix: '/api/v1' });
+  app.register(async (scope) => registerWorkflowStepRoutes(scope, workflowStepService, workflowService), { prefix: '/api/v1' });
 
   app.setErrorHandler((error, request, reply) => {
-    request.log.error(error);
-    const statusCode = error.statusCode && error.statusCode >= 400 ? error.statusCode : 500;
-    const appError = error as { code?: string; details?: unknown };
-    return reply.code(statusCode).send({ error: { code: statusCode === 500 ? 'INTERNAL_SERVER_ERROR' : (appError.code ?? 'REQUEST_ERROR'), message: statusCode === 500 ? 'An unexpected error occurred.' : error.message, requestId: request.id, ...(appError.details === undefined ? {} : { details: appError.details }) } });
+    const safeError = toHttpError(error);
+    request.log.error({
+      requestId: request.id,
+      statusCode: safeError.statusCode,
+      errorCode: safeError.code,
+    }, 'Request failed');
+    return reply.code(safeError.statusCode).send({
+      error: { ...safeError, requestId: request.id },
+    });
   });
   return app;
 }

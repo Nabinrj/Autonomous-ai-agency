@@ -3,7 +3,7 @@ import type { RequestContext } from '../../common/types/request-context.js';
 
 export function requirePermission(context: RequestContext | undefined, permission: string): void {
   if (!context) throw unauthorized();
-  if (!context.permissions.includes(permission) && !context.roles.includes('OWNER')) {
+  if (!context.permissions.includes(permission)) {
     throw forbidden(`Missing permission: ${permission}`);
   }
 }

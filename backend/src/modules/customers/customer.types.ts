@@ -1,3 +1,5 @@
+import type { PoolClient } from 'pg';
+
 export type CustomerStatus = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
 
 export interface Customer {
@@ -17,7 +19,7 @@ export interface CreateCustomerInput {
 }
 
 export interface CustomerRepository {
-  create(input: CreateCustomerInput): Promise<Customer>;
+  create(input: CreateCustomerInput, transaction?: PoolClient): Promise<Customer>;
   findById(organizationId: string, id: string): Promise<Customer | null>;
   list(organizationId: string, limit: number, offset: number): Promise<Customer[]>;
 }

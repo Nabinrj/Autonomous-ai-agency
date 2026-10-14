@@ -29,7 +29,7 @@ export interface LeadRepository {
 }
 
 export const LEAD_TRANSITIONS: Record<LeadStatus, LeadStatus[]> = {
-  NEW: ['QUALIFYING', 'DISQUALIFIED'],
+  NEW: ['QUALIFIED', 'DISQUALIFIED'],
   QUALIFYING: ['QUALIFIED', 'DISQUALIFIED'],
   QUALIFIED: ['CONVERTED', 'DISQUALIFIED'],
   DISQUALIFIED: [],

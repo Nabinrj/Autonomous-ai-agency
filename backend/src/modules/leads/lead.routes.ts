@@ -9,7 +9,13 @@ export async function registerLeadRoutes(app: FastifyInstance, service: LeadServ
     const context = request.requestContext as RequestContext;
     requirePermission(context, 'lead.write');
     const input = createLeadSchema.parse(request.body);
-    const lead = await service.create({ ...input, organizationId: context.organizationId });
+    const lead = await service.create({
+      organizationId: context.organizationId,
+      source: input.source,
+      ...(input.name === undefined ? {} : { name: input.name }),
+      ...(input.email === undefined ? {} : { email: input.email }),
+      ...(input.phone === undefined ? {} : { phone: input.phone }),
+    });
     return reply.code(201).send({ data: lead });
   });
   app.get('/leads/:id', async (request) => {

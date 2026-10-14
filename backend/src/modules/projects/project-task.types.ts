@@ -24,7 +24,7 @@ export interface ProjectTaskRepository {
   create(organizationId: string, input: CreateProjectTaskInput): Promise<ProjectTask>;
   findById(organizationId: string, projectId: string, id: string): Promise<ProjectTask | null>;
   list(organizationId: string, projectId: string): Promise<ProjectTask[]>;
-  updateStatus(organizationId: string, projectId: string, id: string, status: ProjectTaskStatus): Promise<ProjectTask>;
+  updateStatus(organizationId: string, projectId: string, id: string, expectedStatus: ProjectTaskStatus, status: ProjectTaskStatus): Promise<ProjectTask>;
 }
 
 export const PROJECT_TASK_TRANSITIONS: Record<ProjectTaskStatus, ProjectTaskStatus[]> = {

@@ -9,10 +9,11 @@ class MemoryTasks implements ProjectTaskRepository {
     const task: ProjectTask = { id: crypto.randomUUID(), projectId: input.projectId, parentTaskId: input.parentTaskId ?? null, title: input.title, description: input.description ?? null, status: 'TODO', assignedTo: input.assignedTo ?? null, sortOrder: input.sortOrder ?? 0 };
     this.items.set(task.id, task); return task;
   }
-  async findById(_organizationId: string, _projectId: string, id: string) { return this.items.get(id) ?? null; }
+  async findById(_organizationId: string, projectId: string, id: string) { const task=this.items.get(id); return task?.projectId===projectId ? task : null; }
   async list(_organizationId: string, projectId: string) { return [...this.items.values()].filter((item) => item.projectId === projectId); }
-  async updateStatus(_organizationId: string, _projectId: string, id: string, status: ProjectTask['status']) {
-    const current=this.items.get(id); if(!current) throw new Error('missing');
+  async updateStatus(_organizationId: string, projectId: string, id: string, expectedStatus: ProjectTask['status'], status: ProjectTask['status']) {
+    const current=this.items.get(id); if(!current || current.projectId!==projectId) throw new Error('missing');
+    if(current.status!==expectedStatus) throw new Error('concurrent update');
     const updated={...current,status}; this.items.set(id,updated); return updated;
   }
 }

@@ -1,0 +1,78 @@
+name: Backend CI
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'database/**'
+      - '.github/workflows/backend-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'database/**'
+      - '.github/workflows/backend-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Type check
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Unit tests
+        env:
+          NODE_ENV: test
+        run: npm test
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+
+  database-migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: agency_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d agency_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Apply migrations to a clean database
+        env:
+          DATABASE_URL: postgresql://postgres:test-only-password@localhost:5432/agency_test
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/0001_initial_schema.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/0002_tenant_integrity_constraints.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/0003_oidc_identity_and_rbac.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/0004_idempotency_constraints.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/tests/tenant_integrity_constraints.sql

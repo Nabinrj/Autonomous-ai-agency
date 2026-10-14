@@ -2,7 +2,7 @@ import type { AuthenticationProvider, AuthenticatedPrincipal } from './auth.type
 
 /** Development-only identity. Production must use a real authentication provider. */
 export class DevelopmentAuthenticationProvider implements AuthenticationProvider {
-  async authenticate(): Promise<AuthenticatedPrincipal> {
+  async authenticate(_headers: Record<string, string | undefined>): Promise<AuthenticatedPrincipal> {
     return {
       userId: '00000000-0000-0000-0000-000000000001',
       organizationId: '00000000-0000-0000-0000-000000000001',

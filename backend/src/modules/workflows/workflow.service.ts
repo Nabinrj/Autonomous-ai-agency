@@ -32,7 +32,13 @@ export class WorkflowService {
     if (!WORKFLOW_TRANSITIONS[workflow.status].includes(next)) {
       throw conflict(`Invalid workflow transition: ${workflow.status} → ${next}`);
     }
-    const updated = await this.repository.updateStatus(organizationId, id, next, errorCode, errorMessage);
+    if (next === 'FAILED' && !errorCode?.trim()) {
+      throw validationError('A failed workflow requires an error code.');
+    }
+    if (next !== 'FAILED' && (errorCode !== undefined || errorMessage !== undefined)) {
+      throw validationError('Error details may only be supplied when failing a workflow.');
+    }
+    const updated = await this.repository.updateStatus(organizationId, id, workflow.status, next, errorCode, errorMessage);
     await this.audit.record({
       organizationId,
       actorType: 'SYSTEM',

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { validationError } from '../../common/errors/app-error.js';
 import { requirePermission } from '../../common/auth/require-permission.js';
 import { createProjectTaskSchema, projectTaskIdSchema, projectTaskProjectIdSchema, projectTaskTransitionSchema } from './project-task.schema.js';
 import { ProjectTaskService } from './project-task.service.js';
@@ -8,8 +9,15 @@ export async function registerProjectTaskRoutes(app: FastifyInstance, service: P
     const context = requirePermission(request, 'project.write');
     const params = projectTaskProjectIdSchema.parse(request.params);
     const input = createProjectTaskSchema.parse(request.body);
-    if (input.projectId !== params.projectId) throw new Error('Path projectId must match body projectId.');
-    const task = await service.create(context.organizationId, input);
+    if (input.projectId !== params.projectId) throw validationError('Path projectId must match body projectId.');
+    const task = await service.create(context.organizationId, {
+      projectId: input.projectId,
+      title: input.title,
+      ...(input.parentTaskId === undefined ? {} : { parentTaskId: input.parentTaskId }),
+      ...(input.description === undefined ? {} : { description: input.description }),
+      ...(input.assignedTo === undefined ? {} : { assignedTo: input.assignedTo }),
+      ...(input.sortOrder === undefined ? {} : { sortOrder: input.sortOrder }),
+    });
     return reply.code(201).send({ data: task });
   });
 

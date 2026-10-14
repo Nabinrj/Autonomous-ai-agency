@@ -7,7 +7,13 @@ export async function registerWorkflowRoutes(app: FastifyInstance, service: Work
   app.post('/workflows', async (request, reply) => {
     const context = requirePermission(request, 'workflow.execute');
     const input = createWorkflowSchema.parse(request.body);
-    const workflow = await service.create({ ...input, organizationId: context.organizationId });
+    const workflow = await service.create({
+      organizationId: context.organizationId,
+      workflowType: input.workflowType,
+      correlationId: input.correlationId,
+      ...(input.entityType === undefined ? {} : { entityType: input.entityType }),
+      ...(input.entityId === undefined ? {} : { entityId: input.entityId }),
+    });
     return reply.code(201).send({ data: workflow });
   });
 
