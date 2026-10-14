@@ -11,6 +11,7 @@ import { toRequestContext } from './modules/auth/auth.types.js';
 import { PostgresCustomerRepository } from './modules/customers/customer.repository.js';
 import { CustomerService } from './modules/customers/customer.service.js';
 import { registerCustomerRoutes } from './modules/customers/customer.routes.js';
+import { IdempotencyService } from './modules/idempotency/idempotency.service.js';
 import { PostgresLeadRepository } from './modules/leads/lead.repository.js';
 import { LeadService } from './modules/leads/lead.service.js';
 import { registerLeadRoutes } from './modules/leads/lead.routes.js';
@@ -64,6 +65,7 @@ export function buildApp() {
 
   const pool = getDatabasePool();
   const customerService = new CustomerService(new PostgresCustomerRepository(pool));
+  const idempotencyService = new IdempotencyService(pool);
   const leadService = new LeadService(new PostgresLeadRepository(pool));
   const requirementService = new RequirementService(new PostgresRequirementRepository(pool));
   const projectService = new ProjectService(new PostgresProjectRepository(pool));
@@ -73,7 +75,7 @@ export function buildApp() {
   const workflowService = new WorkflowService(new PostgresWorkflowRepository(pool), auditRepository);
   const workflowStepService = new WorkflowStepService(new PostgresWorkflowStepRepository(pool), auditRepository);
 
-  app.register(async (scope) => registerCustomerRoutes(scope, customerService), { prefix: '/api/v1' });
+  app.register(async (scope) => registerCustomerRoutes(scope, customerService, idempotencyService), { prefix: '/api/v1' });
   app.register(async (scope) => registerLeadRoutes(scope, leadService), { prefix: '/api/v1' });
   app.register(async (scope) => registerRequirementRoutes(scope, requirementService), { prefix: '/api/v1' });
   app.register(async (scope) => registerProjectRoutes(scope, projectService), { prefix: '/api/v1' });
