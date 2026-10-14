@@ -30,7 +30,7 @@ type Stored = { request_hash: string; response_status: number | null; response_b
 class FakeClient {
   store = new Map<string, Stored>();
   snapshot: Map<string, Stored> | null = null;
-  async query(sql: string, values: unknown[] = []): Promise<{ rows: unknown[] }> {
+  async query(sql: string, values: unknown[] = []): Promise<{ rows: unknown[]; rowCount?: number | null }> {
     if (sql === 'BEGIN') { this.snapshot = new Map(this.store); return { rows: [] }; }
     if (sql === 'COMMIT') { this.snapshot = null; return { rows: [] }; }
     if (sql === 'ROLLBACK') { if (this.snapshot) this.store = this.snapshot; this.snapshot = null; return { rows: [] }; }
@@ -44,7 +44,7 @@ class FakeClient {
       const key = `${String(values[0])}:${String(values[1])}`;
       const item = this.store.get(key);
       if (item) { item.response_status = Number(values[2]); item.response_body = JSON.parse(String(values[3])); }
-      return { rows: [] };
+      return { rows: [], rowCount: 1 };
     }
     if (sql.includes('SELECT request_hash')) {
       const key = `${String(values[0])}:${String(values[1])}`;
