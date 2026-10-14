@@ -6,6 +6,7 @@ import { env } from './config/env.js';
 import { toHttpError } from './common/errors/http-error.js';
 import { getDatabasePool } from './infrastructure/database/pool.js';
 import { DevelopmentAuthenticationProvider } from './modules/auth/dev-auth.js';
+import { OidcAuthenticationProvider } from './modules/auth/oidc-auth.js';
 import { toRequestContext } from './modules/auth/auth.types.js';
 import { PostgresCustomerRepository } from './modules/customers/customer.repository.js';
 import { CustomerService } from './modules/customers/customer.service.js';
@@ -34,16 +35,16 @@ import { WorkflowStepService } from './modules/workflows/workflow-step.service.j
 import { registerWorkflowStepRoutes } from './modules/workflows/workflow-step.routes.js';
 
 export function buildApp() {
-  if (env.NODE_ENV === 'production') {
-    throw new Error('Production startup is disabled until a production authentication provider is configured.');
-  }
-
   const app = Fastify({ logger: { level: env.LOG_LEVEL }, requestIdHeader: 'x-request-id', bodyLimit: 1_048_576 });
   app.register(helmet);
   app.register(cors, { origin: env.CORS_ORIGIN, credentials: true });
   app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
 
-  const authProvider = env.NODE_ENV === 'development' ? new DevelopmentAuthenticationProvider() : null;
+  const authProvider = env.NODE_ENV === 'development'
+    ? new DevelopmentAuthenticationProvider()
+    : env.NODE_ENV === 'production' && env.OIDC_ISSUER && env.OIDC_AUDIENCE && env.OIDC_JWKS_URL
+      ? new OidcAuthenticationProvider(getDatabasePool(), env.OIDC_ISSUER, env.OIDC_AUDIENCE, env.OIDC_JWKS_URL)
+      : null;
   app.addHook('onRequest', async (request) => {
     if (!authProvider) return;
     const principal = await authProvider.authenticate(request.headers as Record<string, string | undefined>);
