@@ -11,8 +11,9 @@ class MemoryWorkflow implements WorkflowRepository {
     this.items.set(run.id,run); return run;
   }
   async findById(_org:string,id:string){return this.items.get(id)??null;}
-  async updateStatus(_org:string,id:string,status:WorkflowRun['status'],errorCode?:string,errorMessage?:string){
+  async updateStatus(_org:string,id:string,expectedStatus:WorkflowRun['status'],status:WorkflowRun['status'],errorCode?:string,errorMessage?:string){
     const current=this.items.get(id); if(!current) throw new Error('missing');
+    if(current.status!==expectedStatus) throw new Error('concurrent update');
     const updated={...current,status,errorCode:errorCode??current.errorCode,errorMessage:errorMessage??current.errorMessage}; this.items.set(id,updated); return updated;
   }
 }
@@ -38,4 +39,13 @@ test('workflow rejects invalid transitions', async()=>{
   const service=new WorkflowService(new MemoryWorkflow(),new MemoryAudit());
   const run=await service.create({organizationId:'org',workflowType:'test',correlationId:crypto.randomUUID()});
   await assert.rejects(() => service.transition('org',run.id,'COMPLETED'), /Invalid workflow transition/);
+});
+test('workflow failures require a stable error code', async()=> {
+  const service=new WorkflowService(new MemoryWorkflow(),new MemoryAudit());
+  const run=await service.create({organizationId:'org',workflowType:'test',correlationId:crypto.randomUUID()});
+  await service.transition('org',run.id,'RUNNING');
+  await assert.rejects(() => service.transition('org',run.id,'FAILED'), /requires an error code/);
+  const failed=await service.transition('org',run.id,'FAILED','WORKER_FAILED','The worker failed.');
+  assert.equal(failed.status,'FAILED');
+  assert.equal(failed.errorCode,'WORKER_FAILED');
 });
