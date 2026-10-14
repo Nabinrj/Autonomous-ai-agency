@@ -4,7 +4,8 @@ BEGIN;
 
 ALTER TABLE users
   ADD COLUMN identity_provider TEXT,
-  ADD COLUMN auth_subject TEXT;
+  ADD COLUMN auth_subject TEXT,
+  ADD CONSTRAINT ck_users_oidc_identity_pair CHECK ((identity_provider IS NULL) = (auth_subject IS NULL));
 
 CREATE UNIQUE INDEX uq_users_identity_provider_subject
   ON users (identity_provider, auth_subject)
