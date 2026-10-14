@@ -28,9 +28,16 @@ import { registerProjectTaskRoutes } from './modules/projects/project-task.route
 import { PostgresWorkflowRepository } from './modules/workflows/workflow.repository.js';
 import { WorkflowService } from './modules/workflows/workflow.service.js';
 import { registerWorkflowRoutes } from './modules/workflows/workflow.routes.js';
+import { PostgresWorkflowStepRepository } from './modules/workflows/workflow-step.repository.js';
+import { WorkflowStepService } from './modules/workflows/workflow-step.service.js';
+import { registerWorkflowStepRoutes } from './modules/workflows/workflow-step.routes.js';
 
 export function buildApp() {
-  const app = Fastify({ logger: { level: env.LOG_LEVEL }, requestIdHeader: 'x-request-id' });
+  if (env.NODE_ENV === 'production') {
+    throw new Error('Production startup is disabled until a production authentication provider is configured.');
+  }
+
+  const app = Fastify({ logger: { level: env.LOG_LEVEL }, requestIdHeader: 'x-request-id', bodyLimit: 1_048_576 });
   app.register(helmet);
   app.register(cors, { origin: env.CORS_ORIGIN, credentials: true });
   app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
@@ -48,7 +55,7 @@ export function buildApp() {
       await getDatabasePool().query('SELECT 1');
       return reply.code(200).send({ data: { status: 'ready', dependencies: { database: 'ok', queue: 'not_configured' } } });
     } catch {
-      return reply.code(503).send({ error: { code: 'NOT_READY', message: 'Database dependency is unavailable.' } });
+      return reply.code(503).send({ error: { code: 'NOT_READY', message: 'A required dependency is unavailable.' } });
     }
   });
   app.get('/api/v1', async () => ({ data: { name: 'Autonomous AI Agency API', version: 'v1' } }));
@@ -62,6 +69,7 @@ export function buildApp() {
   const auditRepository = new PostgresAuditRepository(pool);
   const projectTaskService = new ProjectTaskService(new PostgresProjectTaskRepository(pool));
   const workflowService = new WorkflowService(new PostgresWorkflowRepository(pool), auditRepository);
+  const workflowStepService = new WorkflowStepService(new PostgresWorkflowStepRepository(pool), auditRepository);
 
   app.register(async (scope) => registerCustomerRoutes(scope, customerService), { prefix: '/api/v1' });
   app.register(async (scope) => registerLeadRoutes(scope, leadService), { prefix: '/api/v1' });
@@ -70,12 +78,17 @@ export function buildApp() {
   app.register(async (scope) => registerApprovalRoutes(scope, approvalService), { prefix: '/api/v1' });
   app.register(async (scope) => registerProjectTaskRoutes(scope, projectTaskService), { prefix: '/api/v1' });
   app.register(async (scope) => registerWorkflowRoutes(scope, workflowService), { prefix: '/api/v1' });
+  app.register(async (scope) => registerWorkflowStepRoutes(scope, workflowStepService, workflowService), { prefix: '/api/v1' });
 
   app.setErrorHandler((error, request, reply) => {
-    request.log.error(error);
     const statusCode = error.statusCode && error.statusCode >= 400 ? error.statusCode : 500;
-    const appError = error as { code?: string; details?: unknown };
-    return reply.code(statusCode).send({ error: { code: statusCode === 500 ? 'INTERNAL_SERVER_ERROR' : (appError.code ?? 'REQUEST_ERROR'), message: statusCode === 500 ? 'An unexpected error occurred.' : error.message, requestId: request.id, ...(appError.details === undefined ? {} : { details: appError.details }) } });
+    const appError = error as { code?: string };
+    request.log.error({ requestId: request.id, statusCode, errorCode: statusCode === 500 ? 'INTERNAL_SERVER_ERROR' : (appError.code ?? 'REQUEST_ERROR') }, 'Request failed');
+    return reply.code(statusCode).send({ error: {
+      code: statusCode === 500 ? 'INTERNAL_SERVER_ERROR' : (appError.code ?? 'REQUEST_ERROR'),
+      message: statusCode === 500 ? 'An unexpected error occurred.' : error.message,
+      requestId: request.id,
+    } });
   });
   return app;
 }
