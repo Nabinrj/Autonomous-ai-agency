@@ -40,6 +40,8 @@ jobs:
       - name: Build
         run: npm run build
       - name: Unit tests
+        env:
+          NODE_ENV: test
         run: npm test
       - name: Dependency audit
         run: npm audit --audit-level=high
