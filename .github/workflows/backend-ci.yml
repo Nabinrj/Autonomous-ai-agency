@@ -71,4 +71,5 @@ jobs:
         run: |
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/0001_initial_schema.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/0002_tenant_integrity_constraints.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/0003_oidc_identity_and_rbac.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/tests/tenant_integrity_constraints.sql
