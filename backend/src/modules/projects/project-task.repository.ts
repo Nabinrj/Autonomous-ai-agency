@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { conflict, notFound } from '../../common/errors/app-error.js';
+import { conflict, notFound, validationError } from '../../common/errors/app-error.js';
 import type { CreateProjectTaskInput, ProjectTask, ProjectTaskRepository, ProjectTaskStatus } from './project-task.types.js';
 
 function mapTask(row: Record<string, unknown>): ProjectTask {
@@ -24,10 +24,22 @@ export class PostgresProjectTaskRepository implements ProjectTaskRepository {
        SELECT p.id, $2, $3, $4, $5, $6
        FROM projects p
        WHERE p.organization_id = $1 AND p.id = $7
+         AND ($2::uuid IS NULL OR EXISTS (
+           SELECT 1 FROM project_tasks parent
+           WHERE parent.id = $2 AND parent.project_id = p.id
+         ))
        RETURNING id, project_id, parent_task_id, title, description, status, assigned_to, sort_order`,
       [organizationId, input.parentTaskId ?? null, input.title, input.description ?? null, input.assignedTo ?? null, input.sortOrder ?? 0, input.projectId],
     );
-    if (!result.rows[0]) throw notFound('Project');
+    if (!result.rows[0]) {
+      const project = await this.pool.query(
+        'SELECT id FROM projects WHERE organization_id = $1 AND id = $2',
+        [organizationId, input.projectId],
+      );
+      if (!project.rows[0]) throw notFound('Project');
+      if (input.parentTaskId) throw validationError('Parent task must belong to the same project.');
+      throw notFound('Project');
+    }
     return mapTask(result.rows[0]);
   }
 
