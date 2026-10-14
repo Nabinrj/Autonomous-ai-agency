@@ -23,3 +23,8 @@ test('authorization returns for explicitly granted permission', () => {
 test('organization boundary rejects cross-tenant access', () => {
   assert.throws(() => assertOrganization(context, 'org-2'), (error: unknown) => typeof error === 'object' && error !== null && 'statusCode' in error && error.statusCode === 403);
 });
+
+test('OWNER role does not bypass an ungranted permission', () => {
+  const owner: RequestContext = { ...context, roles: ['OWNER'], permissions: ['lead.read'] };
+  assert.throws(() => requirePermission(owner, 'project.delete'), (error: unknown) => typeof error === 'object' && error !== null && 'statusCode' in error && error.statusCode === 403);
+});
