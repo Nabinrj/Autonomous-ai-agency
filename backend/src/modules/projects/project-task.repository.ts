@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { notFound } from '../../common/errors/app-error.js';
+import { conflict, notFound } from '../../common/errors/app-error.js';
 import type { CreateProjectTaskInput, ProjectTask, ProjectTaskRepository, ProjectTaskStatus } from './project-task.types.js';
 
 function mapTask(row: Record<string, unknown>): ProjectTask {
@@ -51,15 +51,18 @@ export class PostgresProjectTaskRepository implements ProjectTaskRepository {
     return result.rows.map(mapTask);
   }
 
-  async updateStatus(organizationId: string, projectId: string, id: string, status: ProjectTaskStatus): Promise<ProjectTask> {
+  async updateStatus(organizationId: string, projectId: string, id: string, expectedStatus: ProjectTaskStatus, status: ProjectTaskStatus): Promise<ProjectTask> {
     const result = await this.pool.query(
-      `UPDATE project_tasks t SET status = $4, updated_at = NOW()
+      `UPDATE project_tasks t SET status = $5, updated_at = NOW()
        FROM projects p
-       WHERE t.project_id = p.id AND p.organization_id = $1 AND t.project_id = $2 AND t.id = $3
+       WHERE t.project_id = p.id AND p.organization_id = $1 AND t.project_id = $2 AND t.id = $3 AND t.status = $4
        RETURNING t.id, t.project_id, t.parent_task_id, t.title, t.description, t.status, t.assigned_to, t.sort_order`,
-      [organizationId, projectId, id, status],
+      [organizationId, projectId, id, expectedStatus, status],
     );
-    if (!result.rows[0]) throw notFound('Project task');
-    return mapTask(result.rows[0]);
+    if (result.rows[0]) return mapTask(result.rows[0]);
+
+    const current = await this.findById(organizationId, projectId, id);
+    if (!current) throw notFound('Project task');
+    throw conflict('Project task changed concurrently or is no longer in the expected state.');
   }
 }
