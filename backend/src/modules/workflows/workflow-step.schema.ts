@@ -1,10 +1,8 @@
 import { z } from 'zod';
 import { WORKFLOW_STEP_TRANSITIONS } from './workflow-step.types.js';
 
-export const workflowStepPathSchema = z.object({
-  id: z.string().uuid(),
-  workflowRunId: z.string().uuid(),
-});
+export const workflowRunPathSchema = z.object({ workflowRunId: z.string().uuid() });
+export const workflowStepPathSchema = z.object({ workflowRunId: z.string().uuid(), id: z.string().uuid() });
 
 export const createWorkflowStepSchema = z.object({
   stepKey: z.string().trim().min(1).max(120).regex(/^[a-zA-Z0-9._-]+$/),
