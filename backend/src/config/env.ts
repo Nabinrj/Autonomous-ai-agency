@@ -18,10 +18,23 @@ const envSchema = z.object({
   OBJECT_STORAGE_SECRET_KEY: z.string().optional(),
   EMAIL_PROVIDER: z.string().default('mock'),
   EMAIL_API_KEY: z.string().optional(),
-  SESSION_SECRET: z.string().min(16).default('development-only-change-me')
+  OIDC_ISSUER: z.string().url().optional(),
+  OIDC_AUDIENCE: z.string().min(1).optional(),
+  OIDC_JWKS_URL: z.string().url().optional(),
+  SESSION_SECRET: z.string().min(32).optional()
 });
 
-const parsed = envSchema.safeParse(process.env);
+const productionSchema = envSchema.superRefine((value, context) => {
+  if (value.NODE_ENV !== 'production') return;
+  if (!value.DATABASE_URL) context.addIssue({ code: z.ZodIssueCode.custom, path: ['DATABASE_URL'], message: 'DATABASE_URL is required in production.' });
+  if (!value.OIDC_ISSUER) context.addIssue({ code: z.ZodIssueCode.custom, path: ['OIDC_ISSUER'], message: 'OIDC_ISSUER is required in production.' });
+  if (!value.OIDC_AUDIENCE) context.addIssue({ code: z.ZodIssueCode.custom, path: ['OIDC_AUDIENCE'], message: 'OIDC_AUDIENCE is required in production.' });
+  if (!value.OIDC_JWKS_URL) context.addIssue({ code: z.ZodIssueCode.custom, path: ['OIDC_JWKS_URL'], message: 'OIDC_JWKS_URL is required in production.' });
+  if (!value.SESSION_SECRET) context.addIssue({ code: z.ZodIssueCode.custom, path: ['SESSION_SECRET'], message: 'SESSION_SECRET must be set explicitly in production.' });
+  if (value.OIDC_JWKS_URL && !value.OIDC_JWKS_URL.startsWith('https://')) context.addIssue({ code: z.ZodIssueCode.custom, path: ['OIDC_JWKS_URL'], message: 'OIDC_JWKS_URL must use HTTPS in production.' });
+  if (value.CORS_ORIGIN === '*' || !value.CORS_ORIGIN.startsWith('https://')) context.addIssue({ code: z.ZodIssueCode.custom, path: ['CORS_ORIGIN'], message: 'CORS_ORIGIN must be a specific HTTPS origin in production.' });
+});
+const parsed = productionSchema.safeParse(process.env);
 
 if (!parsed.success) {
   console.error('Invalid environment configuration:', parsed.error.flatten().fieldErrors);
