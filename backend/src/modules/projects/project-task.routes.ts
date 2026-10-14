@@ -10,7 +10,14 @@ export async function registerProjectTaskRoutes(app: FastifyInstance, service: P
     const params = projectTaskProjectIdSchema.parse(request.params);
     const input = createProjectTaskSchema.parse(request.body);
     if (input.projectId !== params.projectId) throw validationError('Path projectId must match body projectId.');
-    const task = await service.create(context.organizationId, input);
+    const task = await service.create(context.organizationId, {
+      projectId: input.projectId,
+      title: input.title,
+      ...(input.parentTaskId === undefined ? {} : { parentTaskId: input.parentTaskId }),
+      ...(input.description === undefined ? {} : { description: input.description }),
+      ...(input.assignedTo === undefined ? {} : { assignedTo: input.assignedTo }),
+      ...(input.sortOrder === undefined ? {} : { sortOrder: input.sortOrder }),
+    });
     return reply.code(201).send({ data: task });
   });
 
